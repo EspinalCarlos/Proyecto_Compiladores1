@@ -1,71 +1,21 @@
 #include <iostream>
-#include "Automatas.hpp"
-using namespace std;
-typedef enum {
-    TOKEN_I32,
-    TOKEN_F64,
-    TOKEN_BOOL,
-    TOKEN_CHAR,
-    TOKEN_STR,
-    TOKEN_EOF
-} TipoToken;
+#include <vector>
 
-TipoToken tokens[] = {
-    TOKEN_CHAR,
-    TOKEN_EOF
-};
-
-int posicion = 0;
-
-/*
-    Gramatica:
-
-    <TIPO> ::= i32
-             | f64
-             | bool
-             | char
-             | str
-*/
-
-int tipo() {
-    switch (tokens[posicion]) {
-
-        case TOKEN_I32:
-        case TOKEN_F64:
-        case TOKEN_BOOL:
-        case TOKEN_CHAR:
-        case TOKEN_STR:
-            posicion++;
-            return 1;
-
-        default:
-            return 0;
-    }
-}
+#include "Lexer.hpp"
 
 int main() {
 
-    /*if (tipo()) {
-        printf("Tipo valido\n");
-    } else {
-        printf("Error de sintaxis\n");
-    }*/
-    cout<<"Prueba de automatas\n";
-    cout <<"Identificadores:\n";
-    cout << "hola: "<< esIdentificador("hola") << '\n';
-    cout << "_variable: "<< esIdentificador("_variable") << '\n';
-    cout << "3variable: "<< esIdentificador("3variable") << '\n';
+    std::string codigo = "let resultado = 25\n"
+        "let nombre = \"hola mundo\"";
 
-    cout<<"Numeros:\n";
-    cout << "123: "<< esNumero("123") << '\n';
-    cout << "3.14: "<< esNumero("3.14") << '\n';
-    cout << "12.34.56: "<< esNumero("12.34.76") << '\n';
-    cout << "abc: "<< esNumero("abc") << '\n';
+    Lexer lexer(codigo);
 
-    cout<<"Strings:\n";
-    cout << "\"hola\": "<< esString("\"hola\"") << '\n';
-    cout << "\"hola mundo\": "<< esString("\"hola mundo\"") << '\n';
-    cout << "\"hola\\nmundo\": " << esString("\"hola\\nmundo\"") << '\n';
-    cout << "\"hola\\z\": "<< esString("\"hola\\z\"") << '\n';
+    std::vector<Token> tokens = lexer.tokenizar();
+
+    for (Token token : tokens) {
+
+        std::cout<< "Tipo: " << static_cast<int>(token.tipo) << " | Lexema: " << token.lexema << " | Linea: " << token.linea << " | Columna: " << token.columna << std::endl;
+    }
+
     return 0;
 }

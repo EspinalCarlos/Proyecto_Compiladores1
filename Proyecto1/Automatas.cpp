@@ -1,4 +1,4 @@
-#include "../Automatas.hpp"
+#include "Automatas.hpp"
 #include <cctype>
 
 bool esIdentificador(const std::string& cadena) {
@@ -106,6 +106,11 @@ bool esOperador(const std::string& cadena) {
         qSimple,
         qAnd,
         qOr,
+        qIgual,
+        qNot,
+        qMenor,
+        qMayor,
+        qMenos,
         qFinal,
         error
     };
@@ -117,13 +122,17 @@ bool esOperador(const std::string& cadena) {
         switch (estado) {
 
             case q0:
+
                 switch (c) {
+
                     case '+':
-                    case '-':
                     case '*':
                     case '/':
-                    case '!':
                         estado = qSimple;
+                        break;
+
+                    case '-':
+                        estado = qMenos;
                         break;
 
                     case '&':
@@ -134,42 +143,130 @@ bool esOperador(const std::string& cadena) {
                         estado = qOr;
                         break;
 
+                    case '=':
+                        estado = qIgual;
+                        break;
+
+                    case '!':
+                        estado = qNot;
+                        break;
+
+                    case '<':
+                        estado = qMenor;
+                        break;
+
+                    case '>':
+                        estado = qMayor;
+                        break;
+
                     default:
                         estado = error;
                         break;
                 }
+
                 break;
+
 
             case qSimple:
                 estado = error;
                 break;
 
+
             case qAnd:
+
                 if (c == '&') {
                     estado = qFinal;
                 } else {
                     estado = error;
                 }
+
                 break;
 
+
             case qOr:
+
                 if (c == '|') {
                     estado = qFinal;
                 } else {
                     estado = error;
                 }
+
                 break;
+
+
+            case qIgual:
+
+                if (c == '=') {
+                    estado = qFinal;
+                } else {
+                    estado = error;
+                }
+
+                break;
+
+
+            case qNot:
+
+                if (c == '=') {
+                    estado = qFinal;
+                } else {
+                    estado = error;
+                }
+
+                break;
+
+
+            case qMenor:
+
+                if (c == '=') {
+                    estado = qFinal;
+                } else {
+                    estado = error;
+                }
+
+                break;
+
+
+            case qMayor:
+
+                if (c == '=') {
+                    estado = qFinal;
+                } else {
+                    estado = error;
+                }
+
+                break;
+
+
+            case qMenos:
+
+                if (c == '>') {
+                    estado = qFinal;
+                } else {
+                    estado = error;
+                }
+
+                break;
+
 
             case qFinal:
                 estado = error;
                 break;
+
 
             case error:
                 return false;
         }
     }
 
-    return estado == qSimple || estado == qFinal;
+
+    return estado == qSimple ||
+           estado == qIgual ||
+           estado == qNot ||
+           estado == qMenor ||
+           estado == qMayor ||
+           estado == qMenos ||
+           estado == qFinal;
 }
 
 bool escapeValido(char c) {
