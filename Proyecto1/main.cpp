@@ -14,7 +14,7 @@ int main() {
 
     for (Token token : tokens) {
 
-        std::cout<< "Tipo: " << static_cast<int>(token.tipo) << " | Lexema: " << token.lexema << " | Linea: " << token.linea << " | Columna: " << token.columna << std::endl;
+        std::cout<< "Tipo: " << static_cast<int>(token.tipo) << " | Lexema: " << token.lexema << std::endl;
     }
 
     return 0;

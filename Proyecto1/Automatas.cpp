@@ -41,13 +41,7 @@ bool esIdentificador(const std::string& cadena) {
 
 bool esNumero(const std::string& cadena) {
 
-    enum Estado {
-        q0,
-        q1,
-        q2,
-        q3,
-        error
-    };
+    enum Estado {q0,q1,q2,q3,error};
 
     Estado estado = q0;
 
@@ -101,19 +95,7 @@ bool esNumero(const std::string& cadena) {
 
 bool esOperador(const std::string& cadena) {
 
-    enum Estado {
-        q0,
-        qSimple,
-        qAnd,
-        qOr,
-        qIgual,
-        qNot,
-        qMenor,
-        qMayor,
-        qMenos,
-        qFinal,
-        error
-    };
+    enum Estado {q0,qSimple,qAnd,qOr,qIgual,qNot,qMenor,qMayor,qMenos,qFinal,error};
 
     Estado estado = q0;
 
@@ -281,13 +263,7 @@ bool escapeValido(char c) {
 
 bool esString(const std::string& cadena) {
 
-    enum Estado {
-        q0,
-        q1,
-        qEscape,
-        qFinal,
-        error
-    };
+    enum Estado {q0,q1,qEscape,qFinal,error};
 
     Estado estado = q0;
 
@@ -340,11 +316,7 @@ bool esString(const std::string& cadena) {
 
 bool esDelimitador(const std::string& cadena) {
 
-    enum Estado {
-        q0,
-        q1,
-        error
-    };
+    enum Estado {q0,q1,error};
 
     Estado estado = q0;
 
@@ -385,14 +357,7 @@ bool esDelimitador(const std::string& cadena) {
 
 bool esChar(const std::string& cadena) {
 
-    enum Estado {
-        q0,
-        q1,
-        q2,
-        qEscape,
-        qFinal,
-        error
-    };
+    enum Estado {q0,q1,q2,qEscape,qFinal,error};
 
     Estado estado = q0;
 
@@ -412,11 +377,7 @@ bool esChar(const std::string& cadena) {
                 if (c == '\\') {
                     estado = qEscape;
                 }
-                else if (
-                    c != '\'' &&
-                    c != '\n' &&
-                    c != '\r'
-                ) {
+                else if (c != '\'' && c!= '\n' &&c != '\r' ) {
                     estado = q2;
                 }
                 else {

@@ -12,15 +12,13 @@ private:
     std::string codigo;
 
     int posicion;
-    int linea;
-    int columna;
 
     std::vector<Token> tokens;
 
     char actual();
     void avanzar_cadena();
 
-    void agregarToken(TokenType tipo,const std::string& lexema,int lineaInicio,int columnaInicio);
+    void agregarToken(TokenType tipo,const std::string& lexema);
 
     void Identificador();
     void Numero();
