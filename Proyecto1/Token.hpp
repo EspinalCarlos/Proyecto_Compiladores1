@@ -69,6 +69,8 @@ enum class TokenType {
 struct Token {
     TokenType tipo;
     std::string lexema;
+    int linea;
+    int columna;
 };
 
 #endif

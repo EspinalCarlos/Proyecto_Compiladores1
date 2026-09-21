@@ -8,6 +8,8 @@ Lexer::Lexer(const std::string& codigo) {
     this->codigo = codigo;
 
     posicion = 0;
+    linea = 1;
+    columna = 1;
 }
 
 
@@ -28,18 +30,23 @@ void Lexer::avanzar_cadena() {
 
     if (codigo[posicion] == '\n') {
 
-       
+        linea++;
+        columna = 1;
+
     } else {
 
+        columna++;
     }
 
     posicion++;
 }
 
-void Lexer::agregarToken(TokenType tipo,const std::string& lexema) {
+void Lexer::agregarToken(TokenType tipo,const std::string& lexema,int lineaInicio,int columnaInicio) {
     Token token;
     token.tipo = tipo;
     token.lexema = lexema;
+    token.linea = lineaInicio;
+    token.columna = columnaInicio;
     tokens.push_back(token);
 }
 
@@ -91,7 +98,8 @@ TokenType Lexer::verificarPalabraReservada(const std::string& palabra) {
 void Lexer::Identificador() {
 
     int inicio = posicion;
-  
+    int lineaInicio = linea;
+    int columnaInicio = columna;
 
     while (
         std::isalnum(static_cast<unsigned char>(actual())) ||
@@ -106,23 +114,40 @@ void Lexer::Identificador() {
 
     if (esIdentificador(lexema)) {
 
-        TokenType tipo = verificarPalabraReservada(lexema);
+        TokenType tipo =
+            verificarPalabraReservada(lexema);
 
-        agregarToken(tipo,lexema);
+        agregarToken(
+            tipo,
+            lexema,
+            lineaInicio,
+            columnaInicio
+        );
 
     } else {
 
-        agregarToken(TokenType::ERROR,lexema);
+        agregarToken(
+            TokenType::ERROR,
+            lexema,
+            lineaInicio,
+            columnaInicio
+        );
     }
 }
 
 void Lexer::Numero() {
 
     int inicio = posicion;
+    int lineaInicio = linea;
+    int columnaInicio = columna;
 
     bool tienePunto = false;
 
-    while (std::isalnum(static_cast<unsigned char>(actual())) ||actual() == '.' || actual() == '_') {
+    while (
+        std::isalnum(static_cast<unsigned char>(actual())) ||
+        actual() == '.' ||
+        actual() == '_'
+    ) {
 
         if (actual() == '.') {
             tienePunto = true;
@@ -136,24 +161,41 @@ void Lexer::Numero() {
 
     if (!esNumero(lexema)) {
 
-        agregarToken(TokenType::ERROR,lexema);
+        agregarToken(
+            TokenType::ERROR,
+            lexema,
+            lineaInicio,
+            columnaInicio
+        );
+
         return;
     }
 
     if (tienePunto) {
 
-        agregarToken(TokenType::DECIMAL,lexema);
+        agregarToken(
+            TokenType::DECIMAL,
+            lexema,
+            lineaInicio,
+            columnaInicio
+        );
 
     } else {
 
-        agregarToken(TokenType::ENTERO,lexema);
+        agregarToken(
+            TokenType::ENTERO,
+            lexema,
+            lineaInicio,
+            columnaInicio
+        );
     }
 }
 
 void Lexer::String() {
 
     int inicio = posicion;
-
+    int lineaInicio = linea;
+    int columnaInicio = columna;
 
     avanzar_cadena();
 
@@ -188,17 +230,31 @@ void Lexer::String() {
 
     if (cerrado && esString(lexema)) {
 
-        agregarToken(TokenType::STRING_LITERAL,lexema);
+        agregarToken(
+            TokenType::STRING_LITERAL,
+            lexema,
+            lineaInicio,
+            columnaInicio
+        );
 
     } else {
 
-        agregarToken(TokenType::ERROR,lexema);
+        agregarToken(
+            TokenType::ERROR,
+            lexema,
+            lineaInicio,
+            columnaInicio
+        );
     }
 }
 
 void Lexer::Char() {
 
     int inicio = posicion;
+
+    int lineaInicio = linea;
+    int columnaInicio = columna;
+
 
     // Consumir '
     avanzar_cadena();
@@ -208,40 +264,70 @@ void Lexer::Char() {
     bool cerrado = false;
 
 
-    while (actual() != '\0' && actual() != '\n' && actual() != '\r') {
+    while (
+        actual() != '\0' &&
+        actual() != '\n' &&
+        actual() != '\r'
+    ) {
 
         char c = actual();
 
+
         if (!escape && c == '\'') {
+
             avanzar_cadena();
+
             cerrado = true;
+
             break;
         }
 
 
         if (!escape && c == '\\') {
+
             escape = true;
+
         } else {
+
             escape = false;
         }
+
 
         avanzar_cadena();
     }
 
 
-    std::string lexema =codigo.substr(inicio,posicion - inicio);
+    std::string lexema =
+        codigo.substr(
+            inicio,
+            posicion - inicio
+        );
 
 
     if (cerrado && esChar(lexema)) {
 
-        agregarToken(TokenType::CHAR_LITERAL,lexema);
-    } else {
         agregarToken(
-            TokenType::ERROR,lexema);
+            TokenType::CHAR_LITERAL,
+            lexema,
+            lineaInicio,
+            columnaInicio
+        );
+
+    } else {
+
+        agregarToken(
+            TokenType::ERROR,
+            lexema,
+            lineaInicio,
+            columnaInicio
+        );
     }
 }
 
 void Lexer::Operador() {
+
+    int lineaInicio = linea;
+    int columnaInicio = columna;
 
     std::string lexema;
 
@@ -277,7 +363,14 @@ void Lexer::Operador() {
         }
     }
       if (!esOperador(lexema)) {
-        agregarToken(TokenType::ERROR,lexema);
+
+        agregarToken(
+            TokenType::ERROR,
+            lexema,
+            lineaInicio,
+            columnaInicio
+        );
+
         return;
     }
       TokenType tipo;
@@ -349,10 +442,19 @@ void Lexer::Operador() {
     }
 
 
-    agregarToken(tipo,lexema);
+    agregarToken(
+        tipo,
+        lexema,
+        lineaInicio,
+        columnaInicio
+    );
 }
 
 void Lexer::Delimitador() {
+
+    int lineaInicio = linea;
+    int columnaInicio = columna;
+
 
     std::string lexema(
         1,
@@ -368,7 +470,13 @@ void Lexer::Delimitador() {
     // Validar con el automata
     if (!esDelimitador(lexema)) {
 
-        agregarToken( TokenType::ERROR,lexema);
+        agregarToken(
+            TokenType::ERROR,
+            lexema,
+            lineaInicio,
+            columnaInicio
+        );
+
         return;
     }
 
@@ -420,7 +528,12 @@ void Lexer::Delimitador() {
     }
 
 
-    agregarToken(tipo,lexema);
+    agregarToken(
+        tipo,
+        lexema,
+        lineaInicio,
+        columnaInicio
+    );
 }
 
 
@@ -513,12 +626,23 @@ std::vector<Token> Lexer::tokenizar() {
 
         std::string desconocido(1, c);
 
-        agregarToken(TokenType::ERROR,desconocido);
+        agregarToken(
+            TokenType::ERROR,
+            desconocido,
+            linea,
+            columna
+        );
+
         avanzar_cadena();
     }
 
     // Final del archivo
     agregarToken(
-        TokenType::END_OF_FILE,"");
+        TokenType::END_OF_FILE,
+        "",
+        linea,
+        columna
+    );
+
     return tokens;
 }
