@@ -1,8 +1,35 @@
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
 #include <vector>
 
+#include "Token.hpp"
 #include "Lexer.hpp"
+#include "Parser.hpp"
+#include "Arbol.hpp"
+#include "TablaSimbolos.hpp"
 
+std::string leerArchivo(const std::string& ruta) {
+
+    std::ifstream archivo(ruta);
+
+    if (!archivo.is_open()) {
+
+        std::cout
+            << "No se pudo abrir el archivo: "
+            << ruta
+            << '\n';
+
+        return "";
+    }
+
+    std::stringstream contenido;
+
+    contenido << archivo.rdbuf();
+
+    return contenido.str();
+}
 
 std::string nombreToken(TokenType tipo) {
 
@@ -141,19 +168,81 @@ std::string nombreToken(TokenType tipo) {
     return "DESCONOCIDO";
 }
 
-int main() {
 
-    std::string codigo = "let resultado = 25\n"
-        "let nombre = \"hola mundo\"";
+int main(int argc, char* argv[]) {
+    // Archivo
+    std::string ruta = "Pruebas/PruebaErrores.rs";
+    if (argc > 1) {
+        ruta = argv[1];
+    }
+    std::string codigo = leerArchivo(ruta);
 
-    Lexer lexer(codigo);
-
-    std::vector<Token> tokens = lexer.tokenizar();
-
-    for (Token token : tokens) {
-
-        std::cout<< "Tipo: " << nombreToken(token.tipo) << " | Lexema: " << token.lexema << " | Linea: " << token.linea << " | Columna: " << token.columna << std::endl;
+    if (codigo.empty()) {
+        std::cout
+            << "El archivo esta vacio o no se pudo leer.\n";
+        return 1;
     }
 
+    std::cout << "Codigo Fuente\n";
+    std::cout << codigo << "\n\n";
+
+    // 2. Analisis Lexico
+    Lexer lexer(codigo);
+    std::vector<Token> tokens = lexer.tokenizar();
+    std::cout << "Tokens\n";
+    bool ErrorLexico = false;
+
+    for (const Token& token : tokens) {
+        std::cout << nombreToken(token.tipo) << "\t"<< token.lexema;
+        if (token.tipo != TokenType::END_OF_FILE) {
+            std::cout << "\tLinea: " << token.linea << "\tColumna: " << token.columna;
+        }
+        std::cout << '\n';
+        if (token.tipo == TokenType::ERROR) {
+            ErrorLexico = true;
+        }
+    }
+
+
+    // 3. Errores Lexicos
+
+
+    if (ErrorLexico) {
+
+        std::cout << "\n";
+        std::cout << "Errores Lexicos:\n";
+  
+        for (const Token& token : tokens) {
+            if (token.tipo == TokenType::ERROR) {
+                std::cout<< "Error lexico"<< " | Lexema: "<< token.lexema << " | Linea: "<< token.linea<< " | Columna: "<< token.columna<< '\n';
+            }
+        }
+        return 0;
+    }
+
+    // 4. Analisis Sintactico
+    Parser parser(tokens);
+    Nodo* arbol = parser.parsear();
+
+
+  
+    // 5. Arbol
+    std::cout << "\nArbol de sintaxis:\n";
+    imprimirArbol(arbol);
+
+    // 6. Tabla de Simbolos
+    std::cout << "\nTabla de Simbolos:\n";
+    parser.obtenerTablaSimbolos().imprimir();
+
+    // 7. Errores Sintacticos
+    std::vector<ErrorCompilador> errores = parser.obtenerErrores();
+    std::cout << "\nERRORES SINTACTICOS\n";
+    if (errores.empty()) {
+        std::cout << "No se encontraron errores sintacticos.\n";
+    } else {
+        for (const ErrorCompilador& error : errores) {
+            std::cout<< "Error sintactico" << " | Linea: " << error.linea<< " | Columna: " << error.columna << " | " << error.mensaje << '\n';
+        }
+    }
     return 0;
 }
