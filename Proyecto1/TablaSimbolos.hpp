@@ -5,28 +5,20 @@
 #include <vector>
 
 struct Simbolo {
-
-    int id;
-    std::string lexema;
-    std::string tipo;
+  int id;
+  std::string lexema;
+  std::string tipo;
 };
 
 class TablaSimbolos {
 
 private:
-
-    std::vector<Simbolo> simbolos;
+  std::vector<Simbolo> simbolos;
 
 public:
-
-    int insertar(
-        const std::string& lexema,
-        const std::string& tipo = ""
-    );
-
-    void imprimir() const;
-
-    const std::vector<Simbolo>& obtenerSimbolos() const;
+  int insertar(const std::string &lexema, const std::string &tipo = "");
+  void imprimir() const;
+  const std::vector<Simbolo> &obtenerSimbolos() const;
 };
 
 #endif

@@ -3,19 +3,16 @@
 
 #include <string>
 
-enum class TipoError {
-    LEXICO,
-    SINTACTICO
-};
+enum class TipoError { LEXICO, SINTACTICO };
 
 struct ErrorCompilador {
 
-    TipoError tipo;
+  TipoError tipo;
 
-    std::string mensaje;
+  std::string mensaje;
 
-    int linea;
-    int columna;
+  int linea;
+  int columna;
 };
 
 #endif

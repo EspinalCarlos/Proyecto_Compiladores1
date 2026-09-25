@@ -1,1626 +1,787 @@
 #include "Parser.hpp"
-using namespace std
-Parser::Parser(
-	const vector<Token>& tokens
-) {
-	this->tojens = tokens;
-	posicion = 0;
+using namespace std;
+Parser::Parser(const vector<Token> &tokens) {
+  this->tokens = tokens;
+  posicion = 0;
 }
 
-Token Parser::actual() {
-
-    return tokens[posicion];
-}
+Token Parser::actual() { return tokens[posicion]; }
 
 Token Parser::anterior() {
-
-    if (posicion == 0) {
-        return tokens[0];
-    }
-
-    return tokens[posicion - 1];
+  if (posicion == 0) {
+    return tokens[0];
+  }
+  return tokens[posicion - 1];
 }
 
-bool Parser::fin() {
-
-    return actual().tipo ==
-        TokenType::END_OF_FILE;
-}
+bool Parser::fin() { return actual().tipo == TokenType::END_OF_FILE; }
 
 void Parser::avanzar() {
-
-    if (!fin()) {
-        posicion++;
-    }
+  if (!fin()) {
+    posicion++;
+  }
 }
 
-bool Parser::verificar(
-    TokenType tipo
-) {
+bool Parser::verificar(TokenType tipo) {
+  if (fin()) {
 
-    if (fin()) {
-
-        return tipo ==
-            TokenType::END_OF_FILE;
-    }
-
-    return actual().tipo == tipo;
+    return tipo == TokenType::END_OF_FILE;
+  }
+  return actual().tipo == tipo;
 }
 
-bool Parser::coincidir(
-    TokenType tipo
-) {
-
-    if (verificar(tipo)) {
-
-        avanzar();
-
-        return true;
-    }
-
-    return false;
+bool Parser::coincidir(TokenType tipo) {
+  if (verificar(tipo)) {
+    avanzar();
+    return true;
+  }
+  return false;
 }
 
-
-bool Parser::consumir(
-    TokenType tipo,
-    const std::string& mensaje
-) {
-
-    if (verificar(tipo)) {
-
-        avanzar();
-
-        return true;
-    }
-
-    errorSintactico(mensaje);
-
-    return false;
+bool Parser::consumir(TokenType tipo, const std::string &mensaje) {
+  if (verificar(tipo)) {
+    avanzar();
+    return true;
+  }
+  errorSintactico(mensaje);
+  return false;
 }
 
-void Parser::errorSintactico(
-    const string& mensaje
-) {
-
-    ErrorCompilador error;
-
-    error.tipo =
-        TipoError::SINTACTICO;
-
-    error.mensaje =
-        mensaje;
-
-    error.linea =
-        actual().linea;
-
-    error.columna =
-        actual().columna;
-
-    errores.push_back(error);
+void Parser::errorSintactico(const string &mensaje) {
+  ErrorCompilador error;
+  error.tipo = TipoError::SINTACTICO;
+  error.mensaje = mensaje;
+  error.linea = actual().linea;
+  error.columna = actual().columna;
+  errores.push_back(error);
 }
 
 void Parser::sincronizar() {
-
-    if (!fin()) {
-        avanzar();
+  if (!fin()) {
+    avanzar();
+  }
+  while (!fin()) {
+    if (anterior().tipo == TokenType::SEMICOLON) {
+      return;
     }
 
-    while (!fin()) {
-
-        if (
-            anterior().tipo ==
-            TokenType::SEMICOLON
-        ) {
-            return;
-        }
-
-
-        if (
-            actual().tipo == TokenType::LET ||
-            actual().tipo == TokenType::IF ||
-            actual().tipo == TokenType::WHILE ||
-            actual().tipo == TokenType::FOR ||
-            actual().tipo == TokenType::RETURN ||
-            actual().tipo == TokenType::FN ||
-            actual().tipo == TokenType::RIGHT_BRACE
-        ) {
-            return;
-        }
-
-
-        avanzar();
+    if (actual().tipo == TokenType::LET || actual().tipo == TokenType::IF ||
+        actual().tipo == TokenType::WHILE || actual().tipo == TokenType::FOR ||
+        actual().tipo == TokenType::RETURN || actual().tipo == TokenType::FN ||
+        actual().tipo == TokenType::RIGHT_BRACE) {
+      return;
     }
+
+    avanzar();
+  }
 }
 
-// ==========================================
-// PARSEAR
-// ==========================================
+// Parsear
 
-Nodo* Parser::parsear() {
+Nodo *Parser::parsear() { return Programa(); }
 
-    return Programa();
+// Progrma Arbol
+
+Nodo *Parser::Programa() {
+  Nodo *nodo = new Nodo("PROGRAMA");
+  while (!fin()) {
+    if (verificar(TokenType::FN)) {
+      Nodo *funcion = Funcion();
+      if (funcion != nullptr) {
+        agregarHijo(nodo, funcion);
+      }
+    } else {
+      errorSintactico("Se esperaba una funcion");
+      sincronizar();
+    }
+  }
+  return nodo;
+}
+
+// Funcion
+Nodo *Parser::Funcion() {
+  Nodo *nodo = new Nodo("FUNCION");
+  // fn
+  Token tokenFn = actual();
+  if (consumir(TokenType::FN, "Se esperaba fn")) {
+    agregarHijo(nodo, new Nodo(tokenFn.lexema));
+  }
+  // nombre de funcion
+
+  Token nombre = actual();
+
+  if (!consumir(TokenType::IDENTIFICADOR,
+                "Se esperaba el nombre de la funcion")) {
+    sincronizar();
+    return nodo;
+  }
+  agregarHijo(nodo, new Nodo(nombre.lexema));
+
+  // Tabla de simbolos
+
+  tablaSimbolos.insertar(nombre.lexema, "");
+
+  consumir(TokenType::LEFT_PAREN, "Se esperaba (");
+
+  // parametros
+  Nodo *parametros = Parametros();
+
+  //(
+  agregarHijo(nodo, parametros);
+
+  // )
+  consumir(TokenType::RIGHT_PAREN, "Se esperaba )");
+
+  // -> tipo
+
+  if (verificar(TokenType::ARROW)) {
+    avanzar();
+    std::string retorno = Tipo();
+
+    if (!retorno.empty()) {
+      agregarHijo(nodo, new Nodo("RETORNO: " + retorno));
+    }
+  }
+
+  // bloque
+
+  Nodo *bloque = Bloque();
+
+  agregarHijo(nodo, bloque);
+
+  return nodo;
 }
 
 
+// Parametros
 
+Nodo *Parser::Parametros() {
 
-// ==========================================
-// PROGRAMA
-// ==========================================
+  Nodo *nodo = new Nodo("PARAMETROS");
 
+  // función sin parámetros
 
-
-Nodo* Parser::Programa() {
-
-    Nodo* nodo =
-        new Nodo("PROGRAMA");
-
-
-    while (!fin()) {
-
-        if (
-            verificar(TokenType::FN)
-        ) {
-
-            Nodo* funcion =
-                Funcion();
-
-            if (funcion != nullptr) {
-
-                agregarHijo(
-                    nodo,
-                    funcion
-                );
-            }
-
-        } else {
-
-            errorSintactico(
-                "Se esperaba una funcion"
-            );
-
-            sincronizar();
-        }
-    }
-
+  if (verificar(TokenType::RIGHT_PAREN)) {
 
     return nodo;
+  }
+
+  while (!fin()) {
+
+    Token identificador = actual();
+
+    if (!consumir(TokenType::IDENTIFICADOR,
+                  "Se esperaba identificador del parametro")) {
+
+      break;
+    }
+
+    consumir(TokenType::COLON, "Se esperaba :");
+
+    std::string tipo = Tipo();
+
+    Nodo *parametro = new Nodo("PARAMETRO");
+
+    agregarHijo(parametro, new Nodo(identificador.lexema));
+
+    if (!tipo.empty()) {
+
+      agregarHijo(parametro, new Nodo(tipo));
+    }
+
+    agregarHijo(nodo, parametro);
+
+    // Tabla de símbolos
+
+    tablaSimbolos.insertar(identificador.lexema, tipo);
+
+    if (!verificar(TokenType::COMMA)) {
+
+      break;
+    }
+
+    avanzar();
+  }
+
+  return nodo;
 }
 
-
-// ==========================================
-// FUNCION
-// ==========================================
-Nodo* Parser::Funcion() {
-
-    Nodo* nodo =
-        new Nodo("FUNCION");
-
-
-    // fn
-
-    Token tokenFn =
-        actual();
-
-    if (
-        consumir(
-            TokenType::FN,
-            "Se esperaba fn"
-        )
-    ) {
-
-        agregarHijo(
-            nodo,
-            new Nodo(tokenFn.lexema)
-        );
-    }
-
-
-    // nombre de funcion
-
-    Token nombre =
-        actual();
-
-
-    if (
-        !consumir(
-            TokenType::IDENTIFICADOR,
-            "Se esperaba el nombre de la funcion"
-        )
-    ) {
-
-        sincronizar();
-
-        return nodo;
-    }
-
-
-    agregarHijo(
-        nodo,
-        new Nodo(nombre.lexema)
-    );
-
-
-    // Tabla de simbolos
-
-    tablaSimbolos.insertar(
-        nombre.lexema,
-        ""
-    );
-
-
-    // (
-
-    consumir(
-        TokenType::LEFT_PAREN,
-        "Se esperaba ("
-    );
-
-
-    // parametros
-
-    Nodo* parametros =
-        Parametros();
-
-    agregarHijo(
-        nodo,
-        parametros
-    );
-
-
-    // )
-
-    consumir(
-        TokenType::RIGHT_PAREN,
-        "Se esperaba )"
-    );
-
-
-    // -> tipo
-
-    if (
-        verificar(
-            TokenType::ARROW
-        )
-    ) {
-
-        avanzar();
-
-
-        std::string retorno =
-            Tipo();
-
-
-        if (!retorno.empty()) {
-
-            agregarHijo(
-                nodo,
-                new Nodo(
-                    "RETORNO: " +
-                    retorno
-                )
-            );
-        }
-    }
-
-
-    // bloque
-
-    Nodo* bloque =
-        Bloque();
-
-    agregarHijo(
-        nodo,
-        bloque
-    );
-
-
-    return nodo;
-}
-
-// ==========================================
-// PARAMETROS
-// ==========================================
-
-
-Nodo* Parser::Parametros() {
-
-    Nodo* nodo =
-        new Nodo("PARAMETROS");
-
-
-    // función sin parámetros
-
-    if (
-        verificar(
-            TokenType::RIGHT_PAREN
-        )
-    ) {
-
-        return nodo;
-    }
-
-
-    while (!fin()) {
-
-        Token identificador =
-            actual();
-
-
-        if (
-            !consumir(
-                TokenType::IDENTIFICADOR,
-                "Se esperaba identificador del parametro"
-            )
-        ) {
-
-            break;
-        }
-
-
-        consumir(
-            TokenType::COLON,
-            "Se esperaba :"
-        );
-
-
-        std::string tipo =
-            Tipo();
-
-
-        Nodo* parametro =
-            new Nodo("PARAMETRO");
-
-
-        agregarHijo(
-            parametro,
-            new Nodo(
-                identificador.lexema
-            )
-        );
-
-
-        if (!tipo.empty()) {
-
-            agregarHijo(
-                parametro,
-                new Nodo(tipo)
-            );
-        }
-
-
-        agregarHijo(
-            nodo,
-            parametro
-        );
-
-
-        // Tabla de símbolos
-
-        tablaSimbolos.insertar(
-            identificador.lexema,
-            tipo
-        );
-
-
-        // Si no hay coma,
-        // terminamos los parámetros
-
-        if (
-            !verificar(
-                TokenType::COMMA
-            )
-        ) {
-
-            break;
-        }
-
-
-        avanzar();
-    }
-
-
-    return nodo;
-}
-
-// ==========================================
-// TIPO
-// ==========================================
+// Tipo
 
 std::string Parser::Tipo() {
 
-    if (
-        verificar(TokenType::TYPE_I32) ||
-        verificar(TokenType::TYPE_F64) ||
-        verificar(TokenType::TYPE_BOOL) ||
-        verificar(TokenType::TYPE_CHAR) ||
-        verificar(TokenType::TYPE_STR)
-    ) {
+  if (verificar(TokenType::TYPE_I32) || verificar(TokenType::TYPE_F64) ||
+      verificar(TokenType::TYPE_BOOL) || verificar(TokenType::TYPE_CHAR) ||
+      verificar(TokenType::TYPE_STR)) {
 
-        std::string tipo =
-            actual().lexema;
+    std::string tipo = actual().lexema;
 
-        avanzar();
+    avanzar();
 
-        return tipo;
-    }
+    return tipo;
+  }
 
+  errorSintactico("Se esperaba un tipo de dato");
 
-    errorSintactico(
-        "Se esperaba un tipo de dato"
-    );
-
-
-    return "";
+  return "";
 }
 
+// Bloque
 
-// ==========================================
-// BLOQUE
-// ==========================================
+Nodo *Parser::Bloque() {
 
-Nodo* Parser::Bloque() {
+  Nodo *nodo = new Nodo("BLOQUE");
 
-    Nodo* nodo =
-        new Nodo("BLOQUE");
+  consumir(TokenType::LEFT_BRACE, "Se esperaba {");
 
+  while (!verificar(TokenType::RIGHT_BRACE) && !fin()) {
 
-    consumir(
-        TokenType::LEFT_BRACE,
-        "Se esperaba {"
-    );
+    Nodo *sentencia = Sentencia();
 
+    if (sentencia != nullptr) {
 
-    while (
-        !verificar(
-            TokenType::RIGHT_BRACE
-        ) &&
-        !fin()
-    ) {
-
-        Nodo* sentencia =
-            Sentencia();
-
-
-        if (
-            sentencia != nullptr
-        ) {
-
-            agregarHijo(
-                nodo,
-                sentencia
-            );
-        }
+      agregarHijo(nodo, sentencia);
     }
+  }
 
+  consumir(TokenType::RIGHT_BRACE, "Se esperaba }");
 
-    consumir(
-        TokenType::RIGHT_BRACE,
-        "Se esperaba }"
-    );
-
-
-    return nodo;
+  return nodo;
 }
 
+//Sentencia 
+Nodo *Parser::Sentencia() {
 
-// ==========================================
-// SENTENCIA
-// ==========================================
+  if (verificar(TokenType::LET)) {
 
-Nodo* Parser::Sentencia() {
+    return Declaracion();
+  }
 
-    if (
-        verificar(
-            TokenType::LET
-        )
-    ) {
+  if (verificar(TokenType::IF)) {
 
-        return Declaracion();
-    }
+    return If();
+  }
 
+  if (verificar(TokenType::WHILE)) {
 
-    if (
-        verificar(
-            TokenType::IF
-        )
-    ) {
+    return While();
+  }
 
-        return If();
-    }
+  if (verificar(TokenType::FOR)) {
 
+    return For();
+  }
 
-    if (
-        verificar(
-            TokenType::WHILE
-        )
-    ) {
+  if (verificar(TokenType::RETURN)) {
 
-        return While();
-    }
+    return Return();
+  }
 
+  if (verificar(TokenType::LEFT_BRACE)) {
 
-    if (
-        verificar(
-            TokenType::FOR
-        )
-    ) {
+    return Bloque();
+  }
 
-        return For();
-    }
+  errorSintactico("Sentencia no reconocida");
 
+  sincronizar();
 
-    if (
-        verificar(
-            TokenType::RETURN
-        )
-    ) {
+  return nullptr;
+}
 
-        return Return();
-    }
+// Declaraciones
 
+Nodo *Parser::Declaracion() {
 
-    if (
-        verificar(
-            TokenType::LEFT_BRACE
-        )
-    ) {
+  Nodo *nodo = new Nodo("DECLARACION");
 
-        return Bloque();
-    }
+  // let
 
+  Token tokenLet = actual();
 
-    errorSintactico(
-        "Sentencia no reconocida"
-    );
+  consumir(TokenType::LET, "Se esperaba let");
 
+  agregarHijo(nodo, new Nodo(tokenLet.lexema));
+
+  // identificador
+
+  Token identificador = actual();
+
+  if (!consumir(TokenType::IDENTIFICADOR, "Se esperaba un identificador")) {
 
     sincronizar();
 
-
-    return nullptr;
-}
-
-
-// ==========================================
-// DECLARACION
-// ==========================================
-
-Nodo* Parser::Declaracion() {
-
-    Nodo* nodo =
-        new Nodo("DECLARACION");
-
-
-    // let
-
-    Token tokenLet =
-        actual();
-
-
-    consumir(
-        TokenType::LET,
-        "Se esperaba let"
-    );
-
-
-    agregarHijo(
-        nodo,
-        new Nodo(
-            tokenLet.lexema
-        )
-    );
-
-
-    // identificador
-
-    Token identificador =
-        actual();
-
-
-    if (
-        !consumir(
-            TokenType::IDENTIFICADOR,
-            "Se esperaba un identificador"
-        )
-    ) {
-
-        sincronizar();
-
-        return nodo;
-    }
-
-
-    agregarHijo(
-        nodo,
-        new Nodo(
-            identificador.lexema
-        )
-    );
-
-
-    // tipo opcional
-
-    std::string tipo = "";
-
-
-    if (
-        verificar(
-            TokenType::COLON
-        )
-    ) {
-
-        avanzar();
-
-
-        tipo =
-            Tipo();
-
-
-        if (!tipo.empty()) {
-
-            agregarHijo(
-                nodo,
-                new Nodo(tipo)
-            );
-        }
-    }
-
-
-    // tabla de símbolos
-
-    tablaSimbolos.insertar(
-        identificador.lexema,
-        tipo
-    );
-
-
-    // =
-
-    consumir(
-        TokenType::ASSIGN,
-        "Se esperaba ="
-    );
-
-
-    // expresión
-
-    Nodo* expresion =
-        Expresion();
-
-
-    if (
-        expresion != nullptr
-    ) {
-
-        agregarHijo(
-            nodo,
-            expresion
-        );
-    }
-
-
-    // ;
-
-    if (
-        !consumir(
-            TokenType::SEMICOLON,
-            "Se esperaba ;"
-        )
-    ) {
-
-        sincronizar();
-    }
-
-
     return nodo;
+  }
+
+  agregarHijo(nodo, new Nodo(identificador.lexema));
+
+  // tipo opcional
+
+  std::string tipo = "";
+
+  if (verificar(TokenType::COLON)) {
+
+    avanzar();
+
+    tipo = Tipo();
+
+    if (!tipo.empty()) {
+
+      agregarHijo(nodo, new Nodo(tipo));
+    }
+  }
+
+  // tabla de símbolos
+
+  tablaSimbolos.insertar(identificador.lexema, tipo);
+
+  // =
+
+  consumir(TokenType::ASSIGN, "Se esperaba =");
+
+  // expresión
+
+  Nodo *expresion = Expresion();
+
+  if (expresion != nullptr) {
+
+    agregarHijo(nodo, expresion);
+  }
+
+  // ;
+
+  if (!consumir(TokenType::SEMICOLON, "Se esperaba ;")) {
+
+    sincronizar();
+  }
+
+  return nodo;
 }
 
+// If
 
-// ==========================================
-// IF
-// ==========================================
+Nodo *Parser::If() {
 
-Nodo* Parser::If() {
+  Nodo *nodo = new Nodo("IF");
 
-    Nodo* nodo =
-        new Nodo("IF");
+  Token tokenIf = actual();
 
+  if (consumir(TokenType::IF, "Se esperaba if")) {
 
-    Token tokenIf =
-        actual();
+    agregarHijo(nodo, new Nodo(tokenIf.lexema));
+  }
 
+  // condición
 
-    if (
-        consumir(
-            TokenType::IF,
-            "Se esperaba if"
-        )
-    ) {
+  Nodo *condicion = Expresion();
 
-        agregarHijo(
-            nodo,
-            new Nodo(
-                tokenIf.lexema
-            )
-        );
-    }
+  if (condicion != nullptr) {
 
+    agregarHijo(nodo, condicion);
+  }
 
-    // condición
+  // bloque if
 
-    Nodo* condicion =
-        Expresion();
+  Nodo *bloqueIf = Bloque();
 
+  agregarHijo(nodo, bloqueIf);
 
-    if (
-        condicion != nullptr
-    ) {
+  // else opcional
 
-        agregarHijo(
-            nodo,
-            condicion
-        );
-    }
+  if (verificar(TokenType::ELSE)) {
 
+    Token tokenElse = actual();
 
-    // bloque if
+    avanzar();
 
-    Nodo* bloqueIf =
-        Bloque();
+    Nodo *nodoElse = new Nodo("ELSE");
 
+    agregarHijo(nodoElse, new Nodo(tokenElse.lexema));
 
-    agregarHijo(
-        nodo,
-        bloqueIf
-    );
+    Nodo *bloqueElse = Bloque();
 
+    agregarHijo(nodoElse, bloqueElse);
 
-    // else opcional
+    agregarHijo(nodo, nodoElse);
+  }
 
-    if (
-        verificar(
-            TokenType::ELSE
-        )
-    ) {
-
-        Token tokenElse =
-            actual();
-
-        avanzar();
-
-
-        Nodo* nodoElse =
-            new Nodo("ELSE");
-
-
-        agregarHijo(
-            nodoElse,
-            new Nodo(
-                tokenElse.lexema
-            )
-        );
-
-
-        Nodo* bloqueElse =
-            Bloque();
-
-
-        agregarHijo(
-            nodoElse,
-            bloqueElse
-        );
-
-
-        agregarHijo(
-            nodo,
-            nodoElse
-        );
-    }
-
-
-    return nodo;
+  return nodo;
 }
 
+// While
+Nodo *Parser::While() {
 
-// ==========================================
-// WHILE
-// ==========================================
+  Nodo *nodo = new Nodo("WHILE");
 
-Nodo* Parser::While() {
+  Token tokenWhile = actual();
 
-    Nodo* nodo =
-        new Nodo("WHILE");
+  if (consumir(TokenType::WHILE, "Se esperaba while")) {
 
+    agregarHijo(nodo, new Nodo(tokenWhile.lexema));
+  }
 
-    Token tokenWhile =
-        actual();
+  Nodo *condicion = Expresion();
 
+  agregarHijo(nodo, condicion);
 
-    if (
-        consumir(
-            TokenType::WHILE,
-            "Se esperaba while"
-        )
-    ) {
+  Nodo *bloque = Bloque();
 
-        agregarHijo(
-            nodo,
-            new Nodo(
-                tokenWhile.lexema
-            )
-        );
-    }
+  agregarHijo(nodo, bloque);
 
-
-    Nodo* condicion =
-        Expresion();
-
-
-    agregarHijo(
-        nodo,
-        condicion
-    );
-
-
-    Nodo* bloque =
-        Bloque();
-
-
-    agregarHijo(
-        nodo,
-        bloque
-    );
-
-
-    return nodo;
+  return nodo;
 }
 
+// For
+Nodo *Parser::For() {
 
-// ==========================================
-// FOR
-// ==========================================
+  Nodo *nodo = new Nodo("FOR");
 
-Nodo* Parser::For() {
+  Token tokenFor = actual();
 
-    Nodo* nodo =
-        new Nodo("FOR");
+  consumir(TokenType::FOR, "Se esperaba for");
 
+  agregarHijo(nodo, new Nodo(tokenFor.lexema));
 
-    Token tokenFor =
-        actual();
+  // variable del for
 
+  Token variable = actual();
 
-    consumir(
-        TokenType::FOR,
-        "Se esperaba for"
-    );
+  if (consumir(TokenType::IDENTIFICADOR,"Se esperaba identificador despues de for")) {
 
+    agregarHijo(nodo, new Nodo(variable.lexema));
 
-    agregarHijo(
-        nodo,
-        new Nodo(
-            tokenFor.lexema
-        )
-    );
+    tablaSimbolos.insertar(variable.lexema, "");
+  }
 
+  if (verificar(TokenType::IDENTIFICADOR) && actual().lexema == "in") {
 
-    // variable del for
+    Token tokenIn = actual();
 
-    Token variable =
-        actual();
+    avanzar();
 
+    agregarHijo(nodo, new Nodo(tokenIn.lexema));
 
-    if (
-        consumir(
-            TokenType::IDENTIFICADOR,
-            "Se esperaba identificador despues de for"
-        )
-    ) {
+  } else {
 
-        agregarHijo(
-            nodo,
-            new Nodo(
-                variable.lexema
-            )
-        );
+    errorSintactico("Se esperaba in");
+  }
 
+  Nodo *expresion = Expresion();
 
-        tablaSimbolos.insertar(
-            variable.lexema,
-            ""
-        );
-    }
+  agregarHijo(nodo, expresion);
 
+  Nodo *bloque = Bloque();
 
-    /*
-        Por ahora el lexer reconoce "in"
-        como IDENTIFICADOR porque todavía
-        no tenemos un TokenType::IN.
-    */
+  agregarHijo(nodo, bloque);
 
-    if (
-        verificar(
-            TokenType::IDENTIFICADOR
-        ) &&
-        actual().lexema == "in"
-    ) {
-
-        Token tokenIn =
-            actual();
-
-        avanzar();
-
-
-        agregarHijo(
-            nodo,
-            new Nodo(
-                tokenIn.lexema
-            )
-        );
-
-    } else {
-
-        errorSintactico(
-            "Se esperaba in"
-        );
-    }
-
-
-    Nodo* expresion =
-        Expresion();
-
-
-    agregarHijo(
-        nodo,
-        expresion
-    );
-
-
-    Nodo* bloque =
-        Bloque();
-
-
-    agregarHijo(
-        nodo,
-        bloque
-    );
-
-
-    return nodo;
+  return nodo;
 }
 
+// Return
+Nodo *Parser::Return() {
 
-// ==========================================
-// RETURN
-// ==========================================
+  Nodo *nodo = new Nodo("RETURN");
 
-Nodo* Parser::Return() {
+  Token tokenReturn = actual();
 
-    Nodo* nodo =
-        new Nodo("RETURN");
+  if (consumir(TokenType::RETURN, "Se esperaba return")) {
 
+    agregarHijo(nodo, new Nodo(tokenReturn.lexema));
+  }
 
-    Token tokenReturn =
-        actual();
+  // return;
 
+  if (!verificar(TokenType::SEMICOLON)) {
 
-    if (
-        consumir(
-            TokenType::RETURN,
-            "Se esperaba return"
-        )
-    ) {
+    Nodo *expresion = Expresion();
 
-        agregarHijo(
-            nodo,
-            new Nodo(
-                tokenReturn.lexema
-            )
-        );
-    }
+    agregarHijo(nodo, expresion);
+  }
 
+  if (!consumir(TokenType::SEMICOLON, "Se esperaba ; despues de return")) {
 
-    // return;
-    // o
-    // return expresion;
+    sincronizar();
+  }
 
-    if (
-        !verificar(
-            TokenType::SEMICOLON
-        )
-    ) {
-
-        Nodo* expresion =
-            Expresion();
-
-
-        agregarHijo(
-            nodo,
-            expresion
-        );
-    }
-
-
-    if (
-        !consumir(
-            TokenType::SEMICOLON,
-            "Se esperaba ; despues de return"
-        )
-    ) {
-
-        sincronizar();
-    }
-
-
-    return nodo;
+  return nodo;
 }
 
+// Expresiones
 
-// ==========================================
-// EXPRESION
-// ==========================================
+Nodo *Parser::Expresion() { return LogicoOr(); }
 
-Nodo* Parser::Expresion() {
 
-    return LogicoOr();
+// Or
+
+
+Nodo *Parser::LogicoOr() {
+
+  Nodo *izquierda = LogicoAnd();
+
+  while (verificar(TokenType::OR)) {
+
+    Token operador = actual();
+
+    avanzar();
+
+    Nodo *derecha = LogicoAnd();
+
+    Nodo *nodo = new Nodo(operador.lexema);
+
+    agregarHijo(nodo, izquierda);
+
+    agregarHijo(nodo, derecha);
+
+    izquierda = nodo;
+  }
+
+  return izquierda;
 }
 
+// And
 
-// ==========================================
-// OR
-// ==========================================
+Nodo *Parser::LogicoAnd() {
 
-Nodo* Parser::LogicoOr() {
+  Nodo *izquierda = Igualdad();
 
-    Nodo* izquierda =
-        LogicoAnd();
+  while (verificar(TokenType::AND)) {
 
+    Token operador = actual();
 
-    while (
-        verificar(
-            TokenType::OR
-        )
-    ) {
+    avanzar();
 
-        Token operador =
-            actual();
+    Nodo *derecha = Igualdad();
 
-        avanzar();
+    Nodo *nodo = new Nodo(operador.lexema);
 
+    agregarHijo(nodo, izquierda);
 
-        Nodo* derecha =
-            LogicoAnd();
+    agregarHijo(nodo, derecha);
 
+    izquierda = nodo;
+  }
 
-        Nodo* nodo =
-            new Nodo(
-                operador.lexema
-            );
-
-
-        agregarHijo(
-            nodo,
-            izquierda
-        );
-
-
-        agregarHijo(
-            nodo,
-            derecha
-        );
-
-
-        izquierda =
-            nodo;
-    }
-
-
-    return izquierda;
+  return izquierda;
 }
 
-
-// ==========================================
-// AND
-// ==========================================
-
-Nodo* Parser::LogicoAnd() {
-
-    Nodo* izquierda =
-        Igualdad();
-
-
-    while (
-        verificar(
-            TokenType::AND
-        )
-    ) {
-
-        Token operador =
-            actual();
-
-        avanzar();
-
-
-        Nodo* derecha =
-            Igualdad();
-
-
-        Nodo* nodo =
-            new Nodo(
-                operador.lexema
-            );
-
-
-        agregarHijo(
-            nodo,
-            izquierda
-        );
-
-
-        agregarHijo(
-            nodo,
-            derecha
-        );
-
-
-        izquierda =
-            nodo;
-    }
-
-
-    return izquierda;
-}
-
-
-// ==========================================
 // == !=
-// ==========================================
 
-Nodo* Parser::Igualdad() {
+Nodo *Parser::Igualdad() {
 
-    Nodo* izquierda =
-        Comparacion();
+  Nodo *izquierda = Comparacion();
 
+  while (verificar(TokenType::EQUAL) || verificar(TokenType::NOT_EQUAL)) {
 
-    while (
-        verificar(
-            TokenType::EQUAL
-        ) ||
-        verificar(
-            TokenType::NOT_EQUAL
-        )
-    ) {
+    Token operador = actual();
 
-        Token operador =
-            actual();
+    avanzar();
 
-        avanzar();
+    Nodo *derecha = Comparacion();
 
+    Nodo *nodo = new Nodo(operador.lexema);
 
-        Nodo* derecha =
-            Comparacion();
+    agregarHijo(nodo, izquierda);
 
+    agregarHijo(nodo, derecha);
 
-        Nodo* nodo =
-            new Nodo(
-                operador.lexema
-            );
+    izquierda = nodo;
+  }
 
-
-        agregarHijo(
-            nodo,
-            izquierda
-        );
-
-
-        agregarHijo(
-            nodo,
-            derecha
-        );
-
-
-        izquierda =
-            nodo;
-    }
-
-
-    return izquierda;
+  return izquierda;
 }
 
-
-// ==========================================
 // < <= > >=
-// ==========================================
 
-Nodo* Parser::Comparacion() {
+Nodo *Parser::Comparacion() {
 
-    Nodo* izquierda =
-        Termino();
+  Nodo *izquierda = Termino();
 
+  while (verificar(TokenType::LESS) || verificar(TokenType::LESS_EQUAL) ||
+         verificar(TokenType::GREATER) || verificar(TokenType::GREATER_EQUAL)) {
 
-    while (
-        verificar(TokenType::LESS) ||
-        verificar(TokenType::LESS_EQUAL) ||
-        verificar(TokenType::GREATER) ||
-        verificar(TokenType::GREATER_EQUAL)
-    ) {
+    Token operador = actual();
 
-        Token operador =
-            actual();
+    avanzar();
 
-        avanzar();
+    Nodo *derecha = Termino();
 
+    Nodo *nodo = new Nodo(operador.lexema);
 
-        Nodo* derecha =
-            Termino();
+    agregarHijo(nodo, izquierda);
 
+    agregarHijo(nodo, derecha);
 
-        Nodo* nodo =
-            new Nodo(
-                operador.lexema
-            );
+    izquierda = nodo;
+  }
 
-
-        agregarHijo(
-            nodo,
-            izquierda
-        );
-
-
-        agregarHijo(
-            nodo,
-            derecha
-        );
-
-
-        izquierda =
-            nodo;
-    }
-
-
-    return izquierda;
+  return izquierda;
 }
-
-
-// ==========================================
 // + -
-// ==========================================
-
-Nodo* Parser::Termino() {
-
-    Nodo* izquierda =
-        Factor();
 
 
-    while (
-        verificar(
-            TokenType::PLUS
-        ) ||
-        verificar(
-            TokenType::MINUS
-        )
-    ) {
+Nodo *Parser::Termino() {
 
-        Token operador =
-            actual();
+  Nodo *izquierda = Factor();
 
-        avanzar();
+  while (verificar(TokenType::PLUS) || verificar(TokenType::MINUS)) {
 
+    Token operador = actual();
 
-        Nodo* derecha =
-            Factor();
+    avanzar();
 
+    Nodo *derecha = Factor();
 
-        Nodo* nodo =
-            new Nodo(
-                operador.lexema
-            );
+    Nodo *nodo = new Nodo(operador.lexema);
 
+    agregarHijo(nodo, izquierda);
 
-        agregarHijo(
-            nodo,
-            izquierda
-        );
+    agregarHijo(nodo, derecha);
 
+    izquierda = nodo;
+  }
 
-        agregarHijo(
-            nodo,
-            derecha
-        );
-
-
-        izquierda =
-            nodo;
-    }
-
-
-    return izquierda;
+  return izquierda;
 }
 
-
-// ==========================================
 // * /
-// ==========================================
-
-Nodo* Parser::Factor() {
-
-    Nodo* izquierda =
-        Unario();
 
 
-    while (
-        verificar(
-            TokenType::MULTIPLY
-        ) ||
-        verificar(
-            TokenType::DIVIDE
-        )
-    ) {
+Nodo *Parser::Factor() {
 
-        Token operador =
-            actual();
+  Nodo *izquierda = Unario();
 
-        avanzar();
+  while (verificar(TokenType::MULTIPLY) || verificar(TokenType::DIVIDE)) {
 
+    Token operador = actual();
 
-        Nodo* derecha =
-            Unario();
+    avanzar();
 
+    Nodo *derecha = Unario();
 
-        Nodo* nodo =
-            new Nodo(
-                operador.lexema
-            );
+    Nodo *nodo = new Nodo(operador.lexema);
 
+    agregarHijo(nodo, izquierda);
 
-        agregarHijo(
-            nodo,
-            izquierda
-        );
+    agregarHijo(nodo, derecha);
 
+    izquierda = nodo;
+  }
 
-        agregarHijo(
-            nodo,
-            derecha
-        );
-
-
-        izquierda =
-            nodo;
-    }
-
-
-    return izquierda;
+  return izquierda;
 }
 
-
-// ==========================================
 // ! y - unario
-// ==========================================
-
-Nodo* Parser::Unario() {
-
-    if (
-        verificar(
-            TokenType::NOT
-        ) ||
-        verificar(
-            TokenType::MINUS
-        )
-    ) {
-
-        Token operador =
-            actual();
-
-        avanzar();
 
 
-        Nodo* nodo =
-            new Nodo(
-                operador.lexema
-            );
+Nodo *Parser::Unario() {
 
+  if (verificar(TokenType::NOT) || verificar(TokenType::MINUS)) {
 
-        Nodo* derecha =
-            Unario();
+    Token operador = actual();
 
+    avanzar();
 
-        agregarHijo(
-            nodo,
-            derecha
-        );
+    Nodo *nodo = new Nodo(operador.lexema);
 
+    Nodo *derecha = Unario();
 
-        return nodo;
-    }
+    agregarHijo(nodo, derecha);
 
+    return nodo;
+  }
 
-    return Primario();
+  return Primario();
 }
 
+// Primario
 
-// ==========================================
-// PRIMARIO
-// ==========================================
-
-Nodo* Parser::Primario() {
-
-    // =========================
-    // NUMEROS / STRING / CHAR
-    // =========================
-
-    if (
-        verificar(TokenType::ENTERO) ||
-        verificar(TokenType::DECIMAL) ||
-        verificar(TokenType::STRING_LITERAL) ||
-        verificar(TokenType::CHAR_LITERAL)
-    ) {
-
-        Token token =
-            actual();
-
-        avanzar();
+Nodo *Parser::Primario() {
 
 
-        return new Nodo(
-            token.lexema
-        );
-    }
+  // Numers, strings, chars
 
 
-    // =========================
-    // IDENTIFICADOR
-    // =========================
+  if (verificar(TokenType::ENTERO) || verificar(TokenType::DECIMAL) ||
+      verificar(TokenType::STRING_LITERAL) ||
+      verificar(TokenType::CHAR_LITERAL)) {
 
-    if (
-        verificar(
-            TokenType::IDENTIFICADOR
-        )
-    ) {
+    Token token = actual();
 
-        Token identificador =
-            actual();
+    avanzar();
 
-        avanzar();
+    return new Nodo(token.lexema);
+  }
+
+  // Identificador (variable o llamada de función)
 
 
-        // llamada de funcion
+  if (verificar(TokenType::IDENTIFICADOR)) {
 
-        if (
-            verificar(
-                TokenType::LEFT_PAREN
-            )
-        ) {
+    Token identificador = actual();
 
-            Nodo* llamada =
-                new Nodo("LLAMADA");
+    avanzar();
 
+    // llamada de funcion
 
-            agregarHijo(
-                llamada,
-                new Nodo(
-                    identificador.lexema
-                )
-            );
+    if (verificar(TokenType::LEFT_PAREN)) {
 
+      Nodo *llamada = new Nodo("LLAMADA");
 
-            avanzar();
+      agregarHijo(llamada, new Nodo(identificador.lexema));
 
+      avanzar();
 
-            // argumentos
+      // argumentos
 
-            if (
-                !verificar(
-                    TokenType::RIGHT_PAREN
-                )
-            ) {
+      if (!verificar(TokenType::RIGHT_PAREN)) {
 
-                while (!fin()) {
+        while (!fin()) {
 
-                    Nodo* argumento =
-                        Expresion();
+          Nodo *argumento = Expresion();
 
+          agregarHijo(llamada, argumento);
 
-                    agregarHijo(
-                        llamada,
-                        argumento
-                    );
+          if (!verificar(TokenType::COMMA)) {
 
+            break;
+          }
 
-                    if (
-                        !verificar(
-                            TokenType::COMMA
-                        )
-                    ) {
-
-                        break;
-                    }
-
-
-                    avanzar();
-                }
-            }
-
-
-            consumir(
-                TokenType::RIGHT_PAREN,
-                "Se esperaba ) en llamada de funcion"
-            );
-
-
-            return llamada;
+          avanzar();
         }
+      }
 
+      consumir(TokenType::RIGHT_PAREN, "Se esperaba ) en llamada de funcion");
 
-        return new Nodo(
-            identificador.lexema
-        );
+      return llamada;
     }
 
+    return new Nodo(identificador.lexema);
+  }
 
-    // =========================
-    // ( EXPRESION )
-    // =========================
+  // Expresion entre paréntesis
 
-    if (
-        verificar(
-            TokenType::LEFT_PAREN
-        )
-    ) {
+  if (verificar(TokenType::LEFT_PAREN)) {
 
-        avanzar();
+    avanzar();
 
+    Nodo *expresion = Expresion();
 
-        Nodo* expresion =
-            Expresion();
+    consumir(TokenType::RIGHT_PAREN, "Se esperaba )");
 
+    return expresion;
+  }
 
-        consumir(
-            TokenType::RIGHT_PAREN,
-            "Se esperaba )"
-        );
-
-
-        return expresion;
-    }
-
-
-    // =========================
-    // ERROR
-    // =========================
-
-    errorSintactico(
-        "Se esperaba una expresion"
-    );
-
-
-    /*
-        Avanzamos para evitar
-        quedarnos pegados en el
-        mismo token.
-    */
-
-    return new Nodo(
-        "ERROR"
-    );
+  // Error
+  errorSintactico("Se esperaba una expresion");
+  return new Nodo("ERROR");
 }
 
+//Resultados 
 
-// ==========================================
-// RESULTADOS
-// ==========================================
+std::vector<ErrorCompilador> Parser::obtenerErrores() { return errores; }
 
-std::vector<ErrorCompilador>
-Parser::obtenerErrores() {
+const TablaSimbolos &Parser::obtenerTablaSimbolos() const {
 
-    return errores;
-}
-
-
-const TablaSimbolos&
-Parser::obtenerTablaSimbolos() const {
-
-    return tablaSimbolos;
+  return tablaSimbolos;
 }

@@ -3,646 +3,500 @@
 
 #include <cctype>
 
-Lexer::Lexer(const std::string& codigo) {
+Lexer::Lexer(const std::string &codigo) {
 
-    this->codigo = codigo;
+  this->codigo = codigo;
 
-    posicion = 0;
-    linea = 1;
-    columna = 1;
+  posicion = 0;
+  linea = 1;
+  columna = 1;
 }
-
 
 char Lexer::actual() {
 
-    if (posicion >= codigo.length()) {
-        return '\0';
-    }
+  if (posicion >= codigo.length()) {
+    return '\0';
+  }
 
-    return codigo[posicion];
+  return codigo[posicion];
 }
 
 void Lexer::avanzar_cadena() {
 
-    if (posicion >= codigo.length()) {
-        return;
-    }
+  if (posicion >= codigo.length()) {
+    return;
+  }
 
-    if (codigo[posicion] == '\n') {
+  if (codigo[posicion] == '\n') {
 
-        linea++;
-        columna = 1;
+    linea++;
+    columna = 1;
 
-    } else {
+  } else {
 
-        columna++;
-    }
+    columna++;
+  }
 
-    posicion++;
+  posicion++;
 }
 
-void Lexer::agregarToken(TokenType tipo,const std::string& lexema,int lineaInicio,int columnaInicio) {
-    Token token;
-    token.tipo = tipo;
-    token.lexema = lexema;
-    token.linea = lineaInicio;
-    token.columna = columnaInicio;
-    tokens.push_back(token);
+void Lexer::agregarToken(TokenType tipo, const std::string &lexema,
+                         int lineaInicio, int columnaInicio) {
+  Token token;
+  token.tipo = tipo;
+  token.lexema = lexema;
+  token.linea = lineaInicio;
+  token.columna = columnaInicio;
+  tokens.push_back(token);
 }
 
-TokenType Lexer::verificarPalabraReservada(const std::string& palabra) {
+TokenType Lexer::verificarPalabraReservada(const std::string &palabra) {
 
-    if (palabra == "let")
-        return TokenType::LET;
+  if (palabra == "let")
+    return TokenType::LET;
 
-    if (palabra == "fn")
-        return TokenType::FN;
+  if (palabra == "fn")
+    return TokenType::FN;
 
-    if (palabra == "if")
-        return TokenType::IF;
+  if (palabra == "if")
+    return TokenType::IF;
 
-    if (palabra == "else")
-        return TokenType::ELSE;
+  if (palabra == "else")
+    return TokenType::ELSE;
 
-    if (palabra == "while")
-        return TokenType::WHILE;
+  if (palabra == "while")
+    return TokenType::WHILE;
 
-    if (palabra == "for")
-        return TokenType::FOR;
+  if (palabra == "for")
+    return TokenType::FOR;
 
-    if (palabra == "return")
-        return TokenType::RETURN;
+  if (palabra == "return")
+    return TokenType::RETURN;
 
+  // Tipos de Rust
 
-    // Tipos de Rust
+  if (palabra == "i32")
+    return TokenType::TYPE_I32;
 
-    if (palabra == "i32")
-        return TokenType::TYPE_I32;
+  if (palabra == "f64")
+    return TokenType::TYPE_F64;
 
-    if (palabra == "f64")
-        return TokenType::TYPE_F64;
+  if (palabra == "bool")
+    return TokenType::TYPE_BOOL;
 
-    if (palabra == "bool")
-        return TokenType::TYPE_BOOL;
+  if (palabra == "char")
+    return TokenType::TYPE_CHAR;
 
-    if (palabra == "char")
-        return TokenType::TYPE_CHAR;
+  if (palabra == "str")
+    return TokenType::TYPE_STR;
 
-    if (palabra == "str")
-        return TokenType::TYPE_STR;
-
-
-    return TokenType::IDENTIFICADOR;
+  return TokenType::IDENTIFICADOR;
 }
 
 void Lexer::Identificador() {
 
-    int inicio = posicion;
-    int lineaInicio = linea;
-    int columnaInicio = columna;
+  int inicio = posicion;
+  int lineaInicio = linea;
+  int columnaInicio = columna;
 
-    while (
-        std::isalnum(static_cast<unsigned char>(actual())) ||
-        actual() == '_'
-    ) {
+  while (std::isalnum(static_cast<unsigned char>(actual())) ||
+         actual() == '_') {
 
-        avanzar_cadena();
-    }
+    avanzar_cadena();
+  }
 
-    std::string lexema =
-        codigo.substr(inicio, posicion - inicio);
+  std::string lexema = codigo.substr(inicio, posicion - inicio);
 
-    if (esIdentificador(lexema)) {
+  if (esIdentificador(lexema)) {
 
-        TokenType tipo =
-            verificarPalabraReservada(lexema);
+    TokenType tipo = verificarPalabraReservada(lexema);
 
-        agregarToken(
-            tipo,
-            lexema,
-            lineaInicio,
-            columnaInicio
-        );
+    agregarToken(tipo, lexema, lineaInicio, columnaInicio);
 
-    } else {
+  } else {
 
-        agregarToken(
-            TokenType::ERROR,
-            lexema,
-            lineaInicio,
-            columnaInicio
-        );
-    }
+    agregarToken(TokenType::ERROR, lexema, lineaInicio, columnaInicio);
+  }
 }
 
 void Lexer::Numero() {
 
-    int inicio = posicion;
-    int lineaInicio = linea;
-    int columnaInicio = columna;
+  int inicio = posicion;
+  int lineaInicio = linea;
+  int columnaInicio = columna;
 
-    bool tienePunto = false;
+  bool tienePunto = false;
 
-    while (
-        std::isalnum(static_cast<unsigned char>(actual())) ||
-        actual() == '.' ||
-        actual() == '_'
-    ) {
+  while (std::isalnum(static_cast<unsigned char>(actual())) ||
+         actual() == '.' || actual() == '_') {
 
-        if (actual() == '.') {
-            tienePunto = true;
-        }
-
-        avanzar_cadena();
+    if (actual() == '.') {
+      tienePunto = true;
     }
 
-    std::string lexema =
-        codigo.substr(inicio, posicion - inicio);
+    avanzar_cadena();
+  }
 
-    if (!esNumero(lexema)) {
+  std::string lexema = codigo.substr(inicio, posicion - inicio);
 
-        agregarToken(
-            TokenType::ERROR,
-            lexema,
-            lineaInicio,
-            columnaInicio
-        );
+  if (!esNumero(lexema)) {
 
-        return;
-    }
+    agregarToken(TokenType::ERROR, lexema, lineaInicio, columnaInicio);
 
-    if (tienePunto) {
+    return;
+  }
 
-        agregarToken(
-            TokenType::DECIMAL,
-            lexema,
-            lineaInicio,
-            columnaInicio
-        );
+  if (tienePunto) {
 
-    } else {
+    agregarToken(TokenType::DECIMAL, lexema, lineaInicio, columnaInicio);
 
-        agregarToken(
-            TokenType::ENTERO,
-            lexema,
-            lineaInicio,
-            columnaInicio
-        );
-    }
+  } else {
+
+    agregarToken(TokenType::ENTERO, lexema, lineaInicio, columnaInicio);
+  }
 }
 
 void Lexer::String() {
 
-    int inicio = posicion;
-    int lineaInicio = linea;
-    int columnaInicio = columna;
+  int inicio = posicion;
+  int lineaInicio = linea;
+  int columnaInicio = columna;
 
-    avanzar_cadena();
+  avanzar_cadena();
 
-    bool escape = false;
-    bool cerrado = false;
+  bool escape = false;
+  bool cerrado = false;
 
-    while (actual() != '\0') {
+  while (actual() != '\0') {
 
-        char c = actual();
+    char c = actual();
 
-        if (!escape && c == '"') {
+    if (!escape && c == '"') {
 
-            avanzar_cadena();
-            cerrado = true;
+      avanzar_cadena();
+      cerrado = true;
 
-            break;
-        }
-
-        if (!escape && c == '\\') {
-
-            escape = true;
-
-        } else {
-
-            escape = false;
-        }
-
-        avanzar_cadena();
+      break;
     }
 
-    std::string lexema = codigo.substr(inicio, posicion - inicio);
+    if (!escape && c == '\\') {
 
-    if (cerrado && esString(lexema)) {
-
-        agregarToken(
-            TokenType::STRING_LITERAL,
-            lexema,
-            lineaInicio,
-            columnaInicio
-        );
+      escape = true;
 
     } else {
 
-        agregarToken(
-            TokenType::ERROR,
-            lexema,
-            lineaInicio,
-            columnaInicio
-        );
+      escape = false;
     }
+
+    avanzar_cadena();
+  }
+
+  std::string lexema = codigo.substr(inicio, posicion - inicio);
+
+  if (cerrado && esString(lexema)) {
+
+    agregarToken(TokenType::STRING_LITERAL, lexema, lineaInicio, columnaInicio);
+
+  } else {
+
+    agregarToken(TokenType::ERROR, lexema, lineaInicio, columnaInicio);
+  }
 }
 
 void Lexer::Char() {
 
-    int inicio = posicion;
+  int inicio = posicion;
 
-    int lineaInicio = linea;
-    int columnaInicio = columna;
+  int lineaInicio = linea;
+  int columnaInicio = columna;
 
+  // Consumir '
+  avanzar_cadena();
 
-    // Consumir '
-    avanzar_cadena();
+  bool escape = false;
+  bool cerrado = false;
 
+  while (actual() != '\0' && actual() != '\n' && actual() != '\r') {
 
-    bool escape = false;
-    bool cerrado = false;
+    char c = actual();
 
+    if (!escape && c == '\'') {
 
-    while (
-        actual() != '\0' &&
-        actual() != '\n' &&
-        actual() != '\r'
-    ) {
+      avanzar_cadena();
 
-        char c = actual();
+      cerrado = true;
 
-
-        if (!escape && c == '\'') {
-
-            avanzar_cadena();
-
-            cerrado = true;
-
-            break;
-        }
-
-
-        if (!escape && c == '\\') {
-
-            escape = true;
-
-        } else {
-
-            escape = false;
-        }
-
-
-        avanzar_cadena();
+      break;
     }
 
+    if (!escape && c == '\\') {
 
-    std::string lexema =
-        codigo.substr(
-            inicio,
-            posicion - inicio
-        );
-
-
-    if (cerrado && esChar(lexema)) {
-
-        agregarToken(
-            TokenType::CHAR_LITERAL,
-            lexema,
-            lineaInicio,
-            columnaInicio
-        );
+      escape = true;
 
     } else {
 
-        agregarToken(
-            TokenType::ERROR,
-            lexema,
-            lineaInicio,
-            columnaInicio
-        );
+      escape = false;
     }
+
+    avanzar_cadena();
+  }
+
+  std::string lexema = codigo.substr(inicio, posicion - inicio);
+
+  if (cerrado && esChar(lexema)) {
+
+    agregarToken(TokenType::CHAR_LITERAL, lexema, lineaInicio, columnaInicio);
+
+  } else {
+
+    agregarToken(TokenType::ERROR, lexema, lineaInicio, columnaInicio);
+  }
 }
 
 void Lexer::Operador() {
 
-    int lineaInicio = linea;
-    int columnaInicio = columna;
+  int lineaInicio = linea;
+  int columnaInicio = columna;
 
-    std::string lexema;
+  std::string lexema;
 
+  // Guardamos el primer carácter
+  char primero = actual();
 
-    // Guardamos el primer carácter
-    char primero = actual();
+  lexema += primero;
 
-    lexema += primero;
+  avanzar_cadena();
 
-    avanzar_cadena();
+  // Comprobar operadores de 2 caracteres
 
-    // Comprobar operadores de 2 caracteres
-  
+  if (actual() != '\0') {
 
-    if (actual() != '\0') {
+    char segundo = actual();
 
-        char segundo = actual();
+    if ((primero == '&' && segundo == '&') ||
+        (primero == '|' && segundo == '|') ||
+        (primero == '=' && segundo == '=') ||
+        (primero == '!' && segundo == '=') ||
+        (primero == '<' && segundo == '=') ||
+        (primero == '>' && segundo == '=') ||
+        (primero == '-' && segundo == '>')) {
 
+      lexema += segundo;
 
-        if (
-            (primero == '&' && segundo == '&') ||
-            (primero == '|' && segundo == '|') ||
-            (primero == '=' && segundo == '=') ||
-            (primero == '!' && segundo == '=') ||
-            (primero == '<' && segundo == '=') ||
-            (primero == '>' && segundo == '=') ||
-            (primero == '-' && segundo == '>')
-        ) {
-
-            lexema += segundo;
-
-            avanzar_cadena();
-        }
+      avanzar_cadena();
     }
-      if (!esOperador(lexema)) {
+  }
+  if (!esOperador(lexema)) {
 
-        agregarToken(
-            TokenType::ERROR,
-            lexema,
-            lineaInicio,
-            columnaInicio
-        );
+    agregarToken(TokenType::ERROR, lexema, lineaInicio, columnaInicio);
 
-        return;
-    }
-      TokenType tipo;
+    return;
+  }
+  TokenType tipo;
 
+  if (lexema == "+") {
 
-    if (lexema == "+") {
+    tipo = TokenType::PLUS;
 
-        tipo = TokenType::PLUS;
+  } else if (lexema == "-") {
 
-    } else if (lexema == "-") {
+    tipo = TokenType::MINUS;
 
-        tipo = TokenType::MINUS;
+  } else if (lexema == "*") {
 
-    } else if (lexema == "*") {
+    tipo = TokenType::MULTIPLY;
 
-        tipo = TokenType::MULTIPLY;
+  } else if (lexema == "/") {
 
-    } else if (lexema == "/") {
+    tipo = TokenType::DIVIDE;
 
-        tipo = TokenType::DIVIDE;
+  } else if (lexema == "&&") {
 
-    } else if (lexema == "&&") {
+    tipo = TokenType::AND;
 
-        tipo = TokenType::AND;
+  } else if (lexema == "||") {
 
-    } else if (lexema == "||") {
+    tipo = TokenType::OR;
 
-        tipo = TokenType::OR;
+  } else if (lexema == "!") {
 
-    } else if (lexema == "!") {
+    tipo = TokenType::NOT;
 
-        tipo = TokenType::NOT;
+  } else if (lexema == "=") {
 
-    } else if (lexema == "=") {
+    tipo = TokenType::ASSIGN;
 
-        tipo = TokenType::ASSIGN;
+  } else if (lexema == "==") {
 
-    } else if (lexema == "==") {
+    tipo = TokenType::EQUAL;
 
-        tipo = TokenType::EQUAL;
+  } else if (lexema == "!=") {
 
-    } else if (lexema == "!=") {
+    tipo = TokenType::NOT_EQUAL;
 
-        tipo = TokenType::NOT_EQUAL;
+  } else if (lexema == "<") {
 
-    } else if (lexema == "<") {
+    tipo = TokenType::LESS;
 
-        tipo = TokenType::LESS;
+  } else if (lexema == "<=") {
 
-    } else if (lexema == "<=") {
+    tipo = TokenType::LESS_EQUAL;
 
-        tipo = TokenType::LESS_EQUAL;
+  } else if (lexema == ">") {
 
-    } else if (lexema == ">") {
+    tipo = TokenType::GREATER;
 
-        tipo = TokenType::GREATER;
+  } else if (lexema == ">=") {
 
-    } else if (lexema == ">=") {
+    tipo = TokenType::GREATER_EQUAL;
 
-        tipo = TokenType::GREATER_EQUAL;
+  } else if (lexema == "->") {
 
-    } else if (lexema == "->") {
+    tipo = TokenType::ARROW;
 
-        tipo = TokenType::ARROW;
+  } else {
 
-    } else {
+    tipo = TokenType::ERROR;
+  }
 
-        tipo = TokenType::ERROR;
-    }
-
-
-    agregarToken(
-        tipo,
-        lexema,
-        lineaInicio,
-        columnaInicio
-    );
+  agregarToken(tipo, lexema, lineaInicio, columnaInicio);
 }
 
 void Lexer::Delimitador() {
 
-    int lineaInicio = linea;
-    int columnaInicio = columna;
+  int lineaInicio = linea;
+  int columnaInicio = columna;
 
+  std::string lexema(1, actual());
 
-    std::string lexema(
-        1,
-        actual()
-    );
+  char c = actual();
 
+  avanzar_cadena();
 
-    char c = actual();
+  // Validar con el automata
+  if (!esDelimitador(lexema)) {
 
-    avanzar_cadena();
+    agregarToken(TokenType::ERROR, lexema, lineaInicio, columnaInicio);
 
+    return;
+  }
 
-    // Validar con el automata
-    if (!esDelimitador(lexema)) {
+  TokenType tipo;
 
-        agregarToken(
-            TokenType::ERROR,
-            lexema,
-            lineaInicio,
-            columnaInicio
-        );
+  switch (c) {
 
-        return;
-    }
+  case '(':
+    tipo = TokenType::LEFT_PAREN;
+    break;
 
+  case ')':
+    tipo = TokenType::RIGHT_PAREN;
+    break;
 
-    TokenType tipo;
+  case '{':
+    tipo = TokenType::LEFT_BRACE;
+    break;
 
+  case '}':
+    tipo = TokenType::RIGHT_BRACE;
+    break;
 
-    switch (c) {
+  case '[':
+    tipo = TokenType::LEFT_BRACKET;
+    break;
 
-        case '(':
-            tipo = TokenType::LEFT_PAREN;
-            break;
+  case ']':
+    tipo = TokenType::RIGHT_BRACKET;
+    break;
 
-        case ')':
-            tipo = TokenType::RIGHT_PAREN;
-            break;
+  case ',':
+    tipo = TokenType::COMMA;
+    break;
 
-        case '{':
-            tipo = TokenType::LEFT_BRACE;
-            break;
+  case ';':
+    tipo = TokenType::SEMICOLON;
+    break;
 
-        case '}':
-            tipo = TokenType::RIGHT_BRACE;
-            break;
+  case ':':
+    tipo = TokenType::COLON;
+    break;
 
-        case '[':
-            tipo = TokenType::LEFT_BRACKET;
-            break;
+  default:
+    tipo = TokenType::ERROR;
+    break;
+  }
 
-        case ']':
-            tipo = TokenType::RIGHT_BRACKET;
-            break;
-
-        case ',':
-            tipo = TokenType::COMMA;
-            break;
-
-        case ';':
-            tipo = TokenType::SEMICOLON;
-            break;
-
-        case ':':
-            tipo = TokenType::COLON;
-            break;
-
-        default:
-            tipo = TokenType::ERROR;
-            break;
-    }
-
-
-    agregarToken(
-        tipo,
-        lexema,
-        lineaInicio,
-        columnaInicio
-    );
+  agregarToken(tipo, lexema, lineaInicio, columnaInicio);
 }
-
-
 
 std::vector<Token> Lexer::tokenizar() {
 
-    while (actual() != '\0') {
+  while (actual() != '\0') {
 
-        char c = actual();
+    char c = actual();
 
-        //Espacios
+    // Espacios
 
-        if (
-            c == ' ' ||
-            c == '\t' ||
-            c == '\r' ||
-            c == '\n'
-        ) {
+    if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
 
-            avanzar_cadena();
-            continue;
-        }
-
-        //Identificadores
-
-        if (
-            std::isalpha(static_cast<unsigned char>(c)) ||
-            c == '_'
-        ) {
-
-            Identificador();
-            continue;
-        }
-
-        // Numeros
-
-        if (std::isdigit(static_cast<unsigned char>(c))) {
-
-            Numero();
-            continue;
-        }
-
-        //Strings
-
-        if (c == '"') {
-
-            String();
-            continue;
-        }
-
-        if (c == '\'') {
-            Char();
-            continue;
-        }
-
-        //Operadores
-        if (
-            c == '+' ||
-            c == '-' ||
-            c == '*' ||
-            c == '/' ||
-            c == '!' ||
-            c == '&' ||
-            c == '|' ||
-            c == '=' ||
-            c == '<' ||
-            c == '>'
-        ) {
-            Operador();
-            continue;
-        }
-
-        //Delimitadores
-         if (
-            c == '{' ||
-            c == '}' ||
-            c == '(' ||
-            c == ')' ||
-            c == '[' ||
-            c == ']' ||
-            c == ',' ||
-            c == ';' ||
-            c == ':'
-        ) {
-            Delimitador();
-            continue;
-        }
-
-        //Caracter Desconocido
-
-        std::string desconocido(1, c);
-
-        agregarToken(
-            TokenType::ERROR,
-            desconocido,
-            linea,
-            columna
-        );
-
-        avanzar_cadena();
+      avanzar_cadena();
+      continue;
     }
 
-    // Final del archivo
-    agregarToken(
-        TokenType::END_OF_FILE,
-        "",
-        linea,
-        columna
-    );
+    // Identificadores
 
-    return tokens;
+    if (std::isalpha(static_cast<unsigned char>(c)) || c == '_') {
+
+      Identificador();
+      continue;
+    }
+
+    // Numeros
+
+    if (std::isdigit(static_cast<unsigned char>(c))) {
+
+      Numero();
+      continue;
+    }
+
+    // Strings
+
+    if (c == '"') {
+
+      String();
+      continue;
+    }
+
+    if (c == '\'') {
+      Char();
+      continue;
+    }
+
+    // Operadores
+    if (c == '+' || c == '-' || c == '*' || c == '/' || c == '!' || c == '&' ||
+        c == '|' || c == '=' || c == '<' || c == '>') {
+      Operador();
+      continue;
+    }
+
+    // Delimitadores
+    if (c == '{' || c == '}' || c == '(' || c == ')' || c == '[' || c == ']' ||
+        c == ',' || c == ';' || c == ':') {
+      Delimitador();
+      continue;
+    }
+
+    // Caracter Desconocido
+
+    std::string desconocido(1, c);
+
+    agregarToken(TokenType::ERROR, desconocido, linea, columna);
+
+    avanzar_cadena();
+  }
+
+  // Final del archivo
+  agregarToken(TokenType::END_OF_FILE, "", linea, columna);
+
+  return tokens;
 }
