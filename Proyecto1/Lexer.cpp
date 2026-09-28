@@ -472,6 +472,13 @@ std::vector<Token> Lexer::tokenizar() {
       continue;
     }
 
+    //Comentarios
+    if (c == '/' && posicion + 1 < codigo.length() &&
+        (codigo[posicion + 1] == '/' || codigo[posicion + 1] == '*')) {
+      Comentario();
+      continue;
+    }
+
     // Operadores
     if (c == '+' || c == '-' || c == '*' || c == '/' || c == '!' || c == '&' ||
         c == '|' || c == '=' || c == '<' || c == '>') {
@@ -499,4 +506,37 @@ std::vector<Token> Lexer::tokenizar() {
   agregarToken(TokenType::END_OF_FILE, "", linea, columna);
 
   return tokens;
+}
+
+void Lexer::Comentario() {
+
+  int lineaInicio = linea;
+  int columnaInicio = columna;
+
+  avanzar_cadena();
+
+  // comentario de una linea
+  if (actual() == '/') {
+    avanzar_cadena();
+    while (actual() != '\0' && actual() != '\n') {
+      avanzar_cadena();
+    }
+    return;
+  }
+  // comentario de varias lineas
+  if (actual() == '*') {
+    avanzar_cadena();
+    while (actual() != '\0') {
+      if (actual() == '*' && posicion + 1 < codigo.length() &&
+          codigo[posicion + 1] == '/') {
+        avanzar_cadena();
+        avanzar_cadena();
+        return;
+      }
+      avanzar_cadena();
+    }
+    // llego al final y nunca encontro */
+    agregarToken(TokenType::ERROR, "Comentario sin cerrar", lineaInicio,
+                 columnaInicio);
+  }
 }

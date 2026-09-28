@@ -28,6 +28,7 @@ private:
   void Char();
   void Delimitador();
   void Operador();
+  void Comentario();
 
   TokenType verificarPalabraReservada(const std::string &palabra);
 
