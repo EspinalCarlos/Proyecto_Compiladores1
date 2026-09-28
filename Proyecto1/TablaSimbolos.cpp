@@ -2,8 +2,7 @@
 
 #include <iostream>
 
-int TablaSimbolos::insertar(const std::string &lexema,
-                            const std::string &tipo) {
+int TablaSimbolos::insertar(const std::string &lexema,const std::string &tipo) {
   Simbolo simbolo;
   simbolo.id = simbolos.size();
   simbolo.lexema = lexema;
@@ -23,4 +22,10 @@ void TablaSimbolos::imprimir() const {
 const std::vector<Simbolo> &TablaSimbolos::obtenerSimbolos() const {
 
   return simbolos;
+}
+void TablaSimbolos::actualizarTipo(int id, const std::string& tipo) {
+
+    if (id >= 0 && id < static_cast<int>(simbolos.size())) {
+        simbolos[id].tipo = tipo;
+    }
 }

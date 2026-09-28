@@ -119,7 +119,7 @@ Nodo *Parser::Funcion() {
 
   // Tabla de simbolos
 
-  tablaSimbolos.insertar(nombre.lexema, "");
+  int idFuncion = tablaSimbolos.insertar(nombre.lexema, "");
 
   consumir(TokenType::LEFT_PAREN, "Se esperaba (");
 
@@ -136,10 +136,13 @@ Nodo *Parser::Funcion() {
 
   if (verificar(TokenType::ARROW)) {
     avanzar();
+
     std::string retorno = Tipo();
 
     if (!retorno.empty()) {
       agregarHijo(nodo, new Nodo("RETORNO: " + retorno));
+
+      tablaSimbolos.actualizarTipo(idFuncion, retorno);
     }
   }
 
@@ -151,7 +154,6 @@ Nodo *Parser::Funcion() {
 
   return nodo;
 }
-
 
 // Parametros
 
@@ -249,7 +251,7 @@ Nodo *Parser::Bloque() {
   return nodo;
 }
 
-//Sentencia 
+// Sentencia
 Nodo *Parser::Sentencia() {
 
   if (verificar(TokenType::LET)) {
@@ -447,7 +449,8 @@ Nodo *Parser::For() {
 
   Token variable = actual();
 
-  if (consumir(TokenType::IDENTIFICADOR,"Se esperaba identificador despues de for")) {
+  if (consumir(TokenType::IDENTIFICADOR,
+               "Se esperaba identificador despues de for")) {
 
     agregarHijo(nodo, new Nodo(variable.lexema));
 
@@ -511,9 +514,7 @@ Nodo *Parser::Return() {
 
 Nodo *Parser::Expresion() { return LogicoOr(); }
 
-
 // Or
-
 
 Nodo *Parser::LogicoOr() {
 
@@ -619,7 +620,6 @@ Nodo *Parser::Comparacion() {
 }
 // + -
 
-
 Nodo *Parser::Termino() {
 
   Nodo *izquierda = Factor();
@@ -645,7 +645,6 @@ Nodo *Parser::Termino() {
 }
 
 // * /
-
 
 Nodo *Parser::Factor() {
 
@@ -673,7 +672,6 @@ Nodo *Parser::Factor() {
 
 // ! y - unario
 
-
 Nodo *Parser::Unario() {
 
   if (verificar(TokenType::NOT) || verificar(TokenType::MINUS)) {
@@ -698,9 +696,7 @@ Nodo *Parser::Unario() {
 
 Nodo *Parser::Primario() {
 
-
   // Numers, strings, chars
-
 
   if (verificar(TokenType::ENTERO) || verificar(TokenType::DECIMAL) ||
       verificar(TokenType::STRING_LITERAL) ||
@@ -714,7 +710,6 @@ Nodo *Parser::Primario() {
   }
 
   // Identificador (variable o llamada de función)
-
 
   if (verificar(TokenType::IDENTIFICADOR)) {
 
@@ -777,7 +772,7 @@ Nodo *Parser::Primario() {
   errorSintactico("Se esperaba una expresion");
 }
 
-//Resultados 
+// Resultados
 
 std::vector<ErrorCompilador> Parser::obtenerErrores() { return errores; }
 

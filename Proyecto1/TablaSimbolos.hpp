@@ -18,6 +18,7 @@ private:
 public:
   int insertar(const std::string &lexema, const std::string &tipo = "");
   void imprimir() const;
+  void actualizarTipo(int id, const std::string& tipo);
   const std::vector<Simbolo> &obtenerSimbolos() const;
 };
 
