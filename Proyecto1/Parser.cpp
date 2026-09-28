@@ -773,8 +773,8 @@ Nodo *Parser::Primario() {
   }
 
   // Error
+  return nullptr;
   errorSintactico("Se esperaba una expresion");
-  return new Nodo("ERROR");
 }
 
 //Resultados 

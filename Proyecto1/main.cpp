@@ -1,4 +1,6 @@
+
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -160,7 +162,7 @@ std::string nombreToken(TokenType tipo) {
 
 int main(int argc, char *argv[]) {
   // Archivo
-  std::string ruta = "Pruebas/PruebaErrores.rs";
+  std::string ruta = "Pruebas/pruebaFuncional.rs";
   if (argc > 1) {
     ruta = argv[1];
   }
@@ -181,11 +183,13 @@ int main(int argc, char *argv[]) {
   bool ErrorLexico = false;
 
   for (const Token &token : tokens) {
-    std::cout << nombreToken(token.tipo) << "\t" << token.lexema;
+
     if (token.tipo != TokenType::END_OF_FILE) {
-      std::cout << "\tLinea: " << token.linea << "\tColumna: " << token.columna;
+      std::cout << std::left << std::setw(22) << nombreToken(token.tipo)
+                << std::setw(22) << token.lexema << std::setw(10) << token.linea
+                << std::setw(10) << token.columna << '\n';
     }
-    std::cout << '\n';
+
     if (token.tipo == TokenType::ERROR) {
       ErrorLexico = true;
     }
@@ -198,7 +202,9 @@ int main(int argc, char *argv[]) {
     std::cout << "Errores Lexicos:\n";
     for (const Token &token : tokens) {
       if (token.tipo == TokenType::ERROR) {
-        std::cout << "Error lexico" << " | Lexema: " << token.lexema << " | Linea: " << token.linea<< " | Columna: " << token.columna << '\n';
+        std::cout << "Error lexico" << " | Lexema: " << token.lexema
+                  << " | Linea: " << token.linea
+                  << " | Columna: " << token.columna << '\n';
       }
     }
     return 0;
@@ -223,7 +229,9 @@ int main(int argc, char *argv[]) {
     std::cout << "No se encontraron errores sintacticos.\n";
   } else {
     for (const ErrorCompilador &error : errores) {
-      std::cout << "Error sintactico" << " | Linea: " << error.linea << " | Columna: " << error.columna << " | " << error.mensaje<< '\n';
+      std::cout << "Error sintactico" << " | Linea: " << error.linea
+                << " | Columna: " << error.columna << " | " << error.mensaje
+                << '\n';
     }
   }
   return 0;
